@@ -8,11 +8,15 @@
 // ─────────────────────────────────────────────────────────────
 
 import { db } from "./firebase.js";
+import { กันหน้า } from "./auth.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 var กล่อง = document.getElementById("ผลลัพธ์");
 
-อ่านใบลาจากฐานข้อมูล();
+// ต้องล็อกอินก่อนถึงจะดูได้ · รอผลก่อนค่อยอ่านข้อมูล
+// ไม่งั้นข้อมูลจะแวบให้เห็นก่อนถูกเด้งออกไปหน้าล็อกอิน
+var ผู้ใช้ = await กันหน้า();
+if (ผู้ใช้) อ่านใบลาจากฐานข้อมูล();
 
 // ── ไปเอาใบลาทั้งหมดจากโฟลเดอร์ leaveRequests บน Firestore ──
 async function อ่านใบลาจากฐานข้อมูล() {

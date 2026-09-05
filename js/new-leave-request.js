@@ -7,12 +7,12 @@
 // ─────────────────────────────────────────────────────────────
 
 import { db } from "./firebase.js";
+import { กันหน้า } from "./auth.js";
 import { collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-// ⚠️ ผู้ขอลาสมมติ — ยังไม่มีล็อกอิน จึงตั้งไว้ตายตัวก่อน
-//    เมื่อทำ Firebase Authentication เสร็จ ให้แก้ที่นี่ที่เดียว
-//    โดยเปลี่ยน id เป็น uid ของคนที่ล็อกอิน และ name เป็นชื่อของคนนั้น
-var ผู้ขอลา = { id: "u001", name: "สมชาย ใจดี" };
+// ผู้ขอลาคือคนที่ล็อกอินอยู่จริง (spec US-08)
+// เติมค่าหลัง กันหน้า() ตอบกลับมาแล้วเท่านั้น
+var ผู้ขอลา = null;
 
 var ฟอร์ม = document.getElementById("ฟอร์มใบลา");
 var ช่องประเภท = document.getElementById("leaveTypeId");
@@ -21,8 +21,13 @@ var ปุ่มบันทึก = document.getElementById("ปุ่มบั
 
 var ประเภททั้งหมด = [];
 
-เติมรายการประเภทการลา();
-ฟอร์ม.addEventListener("submit", บันทึกใบลา);
+// ต้องล็อกอินก่อนถึงจะยื่นใบลาได้ · รอผลก่อนค่อยเริ่มทำอะไร
+var ผู้ใช้ = await กันหน้า();
+if (ผู้ใช้) {
+  ผู้ขอลา = { id: ผู้ใช้.uid, name: ผู้ใช้.name };
+  เติมรายการประเภทการลา();
+  ฟอร์ม.addEventListener("submit", บันทึกใบลา);
+}
 
 // ── ไปเอาประเภทการลาจากโฟลเดอร์ leaveTypes มาใส่รายการเลื่อนลง ──
 async function เติมรายการประเภทการลา() {

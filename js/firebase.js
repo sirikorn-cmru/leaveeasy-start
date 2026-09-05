@@ -9,6 +9,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { getAuth } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 // ค่าประจำตัวของโปรเจกต์บน Firebase — บอกแค่ว่า "นี่คือโปรเจกต์ไหน"
 // ไม่ใช่รหัสลับ Firebase ออกแบบมาให้เปิดเผยในหน้าเว็บอยู่แล้ว
@@ -28,3 +29,6 @@ const app = initializeApp(firebaseConfig);
 // db คือ "ทางเข้าฐานข้อมูล" หน้าอื่นเอาไปใช้ด้วยการเขียน
 //   import { db } from "./firebase.js";
 export const db = getFirestore(app);
+
+// auth คือ "ทางเข้าระบบล็อกอิน" ส่วนใหญ่เรียกผ่าน js/auth.js อีกที
+export const auth = getAuth(app);

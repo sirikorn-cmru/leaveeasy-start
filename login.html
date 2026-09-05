@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เข้าสู่ระบบ · LeaveEasy</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/login.js" type="module"></script>
+</head>
+<body>
+  <!-- หน้านี้ไม่มีแถบเมนูและไม่มียามเฝ้าหน้า — คนที่ยังไม่ล็อกอินต้องเข้าถึงได้ -->
+  <div class="container">
+    <h1>🔧 LeaveEasy</h1>
+    <p class="subtitle">เข้าสู่ระบบก่อนใช้งาน</p>
+
+    <div class="card">
+      <div id="ข้อความเตือน" class="alert alert-error hidden"></div>
+
+      <form id="ฟอร์มเข้าสู่ระบบ">
+        <label for="email">อีเมล</label>
+        <input type="email" id="email" autocomplete="email" placeholder="you@example.com">
+
+        <label for="password">รหัสผ่าน</label>
+        <input type="password" id="password" autocomplete="current-password" placeholder="รหัสผ่านของคุณ">
+
+        <div class="btn-row">
+          <button type="submit" id="ปุ่มเข้าสู่ระบบ">เข้าสู่ระบบ</button>
+          <a class="btn btn-ghost" href="signup.html">ยังไม่มีบัญชี · สมัครสมาชิก</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>
