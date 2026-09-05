@@ -4,10 +4,11 @@
 //
 // ปุ่มอนุมัติ/ไม่อนุมัติ  → แก้ช่อง status ของไฟล์ใบลา
 // ส่งความเห็น           → เพิ่มไฟล์ในโฟลเดอร์ย่อย approvals ของใบนั้น
+// ปุ่มลบ                → ลบความเห็นทั้งหมดก่อน แล้วค่อยลบไฟล์ใบลา
 // ─────────────────────────────────────────────────────────────
 
 import { db } from "./firebase.js";
-import { doc, getDoc, updateDoc, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 // ⚠️ ผู้พิจารณาสมมติ — ยังไม่มีล็อกอิน จึงตั้งไว้ตายตัวก่อน
 //    เมื่อทำ Firebase Authentication เสร็จ ให้แก้ที่นี่ที่เดียว
@@ -80,14 +81,22 @@ function วาดใบลา() {
   }).join("");
 
   // ปุ่มอนุมัติ / ไม่อนุมัติ ขึ้นเฉพาะใบที่ยังรอพิจารณา
-  if (ใบ.status === "รอพิจารณา") {
+  // ส่วนปุ่มลบขึ้นเสมอ แต่ใบที่พิจารณาแล้วจะกดไม่ได้ (spec US-07)
+  var ยังรอพิจารณา = ใบ.status === "รอพิจารณา";
+
+  html += '<div class="btn-row">';
+  if (ยังรอพิจารณา) {
     html +=
-      '<div class="btn-row">' +
       '<button type="button" class="btn-ok" id="ปุ่มอนุมัติ">อนุมัติ</button>' +
-      '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>' +
-      "</div>";
-  } else {
-    html += '<p class="hint">ใบนี้พิจารณาแล้ว จึงเปลี่ยนสถานะต่อไม่ได้</p>';
+      '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>';
+  }
+  html +=
+    '<button type="button" class="btn-danger" id="ปุ่มลบ"' + (ยังรอพิจารณา ? "" : " disabled") +
+    ">ลบใบลา</button>" +
+    "</div>";
+
+  if (!ยังรอพิจารณา) {
+    html += '<p class="hint">ใบนี้พิจารณาแล้ว จึงเปลี่ยนสถานะต่อไม่ได้ และลบไม่ได้ — ลบได้เฉพาะใบที่ยังรอพิจารณา</p>';
   }
 
   if (เตือนสถานะ) {
@@ -96,9 +105,10 @@ function วาดใบลา() {
 
   กล่องใบลา.innerHTML = html;
 
-  if (ใบ.status === "รอพิจารณา") {
+  if (ยังรอพิจารณา) {
     document.getElementById("ปุ่มอนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("อนุมัติ"); });
     document.getElementById("ปุ่มไม่อนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("ไม่อนุมัติ"); });
+    document.getElementById("ปุ่มลบ").addEventListener("click", ลบใบลา);
   }
 }
 
@@ -132,14 +142,58 @@ async function เปลี่ยนสถานะ(สถานะใหม่)
   }
 }
 
-// ปิดปุ่มทั้งสองระหว่างบันทึก กันกดรัวแล้วสั่งซ้ำ
-function ปิดปุ่มพิจารณา(ข้อความ) {
-  ["ปุ่มอนุมัติ", "ปุ่มไม่อนุมัติ"].forEach(function (id) {
+// ปิดปุ่มทุกปุ่มระหว่างบันทึก กันกดรัวแล้วสั่งซ้ำ
+// idที่เปลี่ยนข้อความ คือปุ่มที่จะขึ้นว่ากำลังทำอะไรอยู่
+function ปิดปุ่มพิจารณา(ข้อความ, idที่เปลี่ยนข้อความ) {
+  ["ปุ่มอนุมัติ", "ปุ่มไม่อนุมัติ", "ปุ่มลบ"].forEach(function (id) {
     var ปุ่ม = document.getElementById(id);
     if (ปุ่ม) { ปุ่ม.disabled = true; }
   });
-  var ปุ่มอนุมัติ = document.getElementById("ปุ่มอนุมัติ");
-  if (ปุ่มอนุมัติ) { ปุ่มอนุมัติ.textContent = ข้อความ; }
+  var ปุ่มที่บอกสถานะ = document.getElementById(idที่เปลี่ยนข้อความ || "ปุ่มอนุมัติ");
+  if (ปุ่มที่บอกสถานะ) { ปุ่มที่บอกสถานะ.textContent = ข้อความ; }
+}
+
+// ── ลบใบลา ──
+// ⚠️ Firestore ไม่ลบโฟลเดอร์ย่อยให้อัตโนมัติ
+//    ถ้าลบแต่ไฟล์ใบลา ความเห็นใน approvals จะค้างอยู่ในฐานตลอดไป
+//    มองไม่เห็นทั้งจากหน้าเว็บและจาก Console เพราะไฟล์แม่หายไปแล้ว
+//    จึงต้องลบความเห็นให้หมดก่อน แล้วค่อยลบไฟล์ใบลา
+async function ลบใบลา() {
+  // ด่านที่สอง — ปุ่มที่ปิดไว้ในหน้าเว็บ ผู้ใช้สั่งข้ามได้จาก F12
+  // (การกันจริงจังทำด้วย Security Rules ในสัปดาห์ที่ 8)
+  if (ใบ.status !== "รอพิจารณา") {
+    alert("ลบได้เฉพาะใบที่สถานะยังเป็น รอพิจารณา");
+    return;
+  }
+
+  var คำถาม = 'ยืนยันลบใบลา "' + ใบ.title + '" หรือไม่';
+  if (ความเห็น.length > 0) {
+    คำถาม += "\nความเห็น " + ความเห็น.length + " รายการในใบนี้จะถูกลบไปด้วย และกู้คืนไม่ได้";
+  }
+  if (!confirm(คำถาม)) return;
+
+  ปิดปุ่มพิจารณา("กำลังลบ…", "ปุ่มลบ");
+
+  try {
+    // 1) ลบความเห็นในโฟลเดอร์ย่อยให้หมดก่อน
+    var ความเห็นในฐาน = await getDocs(collection(db, "leaveRequests", ใบ.id, "approvals"));
+    for (var ไฟล์ความเห็น of ความเห็นในฐาน.docs) {
+      await deleteDoc(ไฟล์ความเห็น.ref);
+    }
+
+    // 2) แล้วค่อยลบไฟล์ใบลา
+    await deleteDoc(doc(db, "leaveRequests", ใบ.id));
+
+    // 3) ลบสำเร็จแล้วค่อยพากลับหน้ารายการ
+    location.href = "leave-requests.html";
+
+  } catch (ข้อผิดพลาด) {
+    // ลบไม่สำเร็จ อยู่หน้าเดิม กดลบซ้ำได้ ระบบจะลบต่อจากที่ค้างไว้
+    console.error("ลบใบลาไม่สำเร็จ:", ข้อผิดพลาด);
+    เตือนสถานะ = "⚠️ ลบใบลาไม่สำเร็จ ใบลายังอยู่ในระบบ กดลบอีกครั้งได้ (" +
+                 esc(ข้อผิดพลาด.code || ข้อผิดพลาด.message) + ")";
+    วาดใบลา();
+  }
 }
 
 // ── รายการความเห็น เรียงจากเก่าไปใหม่ ──
