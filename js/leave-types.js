@@ -3,12 +3,12 @@
 // สัปดาห์ที่ 7: เพิ่ม แก้ ลบ ลง Firestore จริงแล้ว
 // ไม่ใช้ js/data.js ในหน้านี้อีกต่อไป
 //
-// ⚠️ ยังไม่กันตามบทบาท — ACL.md ระบุว่าเฉพาะ hr ที่แก้ประเภทการลาได้
-//    แต่การบังคับจริงเป็นงานของสัปดาห์ที่ 8 (Security Rules รายห้อง)
+// ACL.md: เฉพาะ hr ที่เพิ่ม/แก้/ลบประเภทการลาได้ · คนอื่นดูได้อย่างเดียว
+// การกันจริงอยู่ใน firestore.rules แล้ว ตรงนี้แค่ไม่ให้หน้าจอโชว์ปุ่มที่กดไม่ได้
 // ─────────────────────────────────────────────────────────────
 
 import { db } from "./firebase.js";
-import { กันหน้า } from "./auth.js";
+import { กันหน้า, เป็นฝ่ายบุคคล } from "./auth.js";
 import { collection, doc, getDocs, addDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 var รายการ = [];
@@ -18,9 +18,17 @@ var กล่องเตือน = document.getElementById("เตือนป
 var ปุ่มเพิ่ม = document.getElementById("ปุ่มเพิ่ม");
 
 // ต้องล็อกอินก่อนถึงจะเข้าได้ · รอผลก่อนค่อยอ่านข้อมูล
+var แก้ไขได้ = false;
+
 var ผู้ใช้ = await กันหน้า();
 if (ผู้ใช้) {
-  ปุ่มเพิ่ม.addEventListener("click", เพิ่มประเภท);
+  แก้ไขได้ = เป็นฝ่ายบุคคล(ผู้ใช้);
+
+  if (แก้ไขได้) {
+    // กล่องเพิ่มประเภทซ่อนไว้ตั้งแต่แรก เปิดให้เฉพาะฝ่ายบุคคล
+    document.getElementById("กล่องเพิ่มประเภท").classList.remove("hidden");
+    ปุ่มเพิ่ม.addEventListener("click", เพิ่มประเภท);
+  }
   โหลดประเภทการลา();
 }
 
@@ -45,15 +53,25 @@ function วาดตาราง() {
     return;
   }
 
-  var html = "<table><thead><tr><th>ชื่อประเภทการลา</th><th>จัดการ</th></tr></thead><tbody>";
+  var html = "<table><thead><tr><th>ชื่อประเภทการลา</th>" +
+             (แก้ไขได้ ? "<th>จัดการ</th>" : "") +
+             "</tr></thead><tbody>";
   รายการ.forEach(function (ประเภท) {
-    html +=
-      "<tr><td>" + esc(ประเภท.name) + "</td><td>" +
-      '<button type="button" class="btn-ghost" data-edit="' + esc(ประเภท.id) + '">แก้ไข</button> ' +
-      '<button type="button" class="btn-danger" data-del="' + esc(ประเภท.id) + '">ลบ</button>' +
-      "</td></tr>";
+    html += "<tr><td>" + esc(ประเภท.name) + "</td>";
+    if (แก้ไขได้) {
+      html += "<td>" +
+        '<button type="button" class="btn-ghost" data-edit="' + esc(ประเภท.id) + '">แก้ไข</button> ' +
+        '<button type="button" class="btn-danger" data-del="' + esc(ประเภท.id) + '">ลบ</button>' +
+        "</td>";
+    }
+    html += "</tr>";
   });
   html += "</tbody></table>";
+
+  if (!แก้ไขได้) {
+    html += '<p class="hint">ดูได้อย่างเดียว — เฉพาะฝ่ายบุคคล (hr) ที่เพิ่ม แก้ หรือลบประเภทการลาได้</p>';
+  }
+
   ที่วางตาราง.innerHTML = html;
 
   ที่วางตาราง.querySelectorAll("[data-edit]").forEach(function (ปุ่ม) {

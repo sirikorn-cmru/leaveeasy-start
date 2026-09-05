@@ -6,11 +6,12 @@
 // ─────────────────────────────────────────────────────────────
 
 (function () {
+  // เฉพาะhr: true = เมนูที่มีแต่ฝ่ายบุคคลเห็น (ตาม ACL.md)
   var เมนู = [
     { href: "index.html",             ชื่อ: "หน้าแรก" },
     { href: "leave-requests.html",    ชื่อ: "รายการใบลา" },
     { href: "new-leave-request.html", ชื่อ: "ยื่นใบลาใหม่" },
-    { href: "leave-types.html",       ชื่อ: "ประเภทการลา" }
+    { href: "leave-types.html",       ชื่อ: "ประเภทการลา", เฉพาะhr: true }
   ];
 
   // ชื่อไฟล์ของหน้าที่กำลังเปิดอยู่ เอาไว้ขีดเส้นใต้เมนูที่ตรงกัน
@@ -18,8 +19,16 @@
 
   var html = '<div class="navbar"><span class="brand">🔧 LeaveEasy</span>';
   เมนู.forEach(function (m) {
-    var active = m.href === หน้าปัจจุบัน ? ' class="active"' : "";
-    html += '<a href="' + m.href + '"' + active + ">" + m.ชื่อ + "</a>";
+    // 🔑 เมนูของ hr ซ่อนไว้ก่อนเสมอ แล้วให้ js/auth.js เปิดให้ทีหลังเมื่อรู้บทบาท
+    //    ถ้าโชว์ก่อนแล้วค่อยซ่อน เมนูจะแวบให้เห็นแล้วหายไป ดูเหมือนระบบพัง
+    var คลาส = [];
+    if (m.href === หน้าปัจจุบัน) คลาส.push("active");
+    if (m.เฉพาะhr) คลาส.push("hidden");
+
+    html += '<a href="' + m.href + '"' +
+            (คลาส.length ? ' class="' + คลาส.join(" ") + '"' : "") +
+            (m.เฉพาะhr ? ' data-hr-only' : "") +
+            ">" + m.ชื่อ + "</a>";
   });
   // ช่องว่างสำหรับแสดงชื่อคนที่ล็อกอินอยู่ (เติมค่าในสัปดาห์ที่ 7)
   html += '<span class="nav-user" id="navUser"></span></div>';

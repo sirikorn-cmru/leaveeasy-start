@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { db } from "./firebase.js";
-import { กันหน้า } from "./auth.js";
+import { กันหน้า, เป็นผู้อนุมัติ, เป็นฝ่ายบุคคล } from "./auth.js";
 import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 // ผู้พิจารณาคือคนที่ล็อกอินอยู่จริง (spec US-08)
@@ -86,23 +86,30 @@ function วาดใบลา() {
     return '<div class="field-row"><span class="k">' + r[0] + "</span><span>" + r[1] + "</span></div>";
   }).join("");
 
-  // ปุ่มอนุมัติ / ไม่อนุมัติ ขึ้นเฉพาะใบที่ยังรอพิจารณา
-  // ส่วนปุ่มลบขึ้นเสมอ แต่ใบที่พิจารณาแล้วจะกดไม่ได้ (spec US-07)
+  // ปุ่มขึ้นตามบทบาทใน ACL.md · Rules กันซ้ำอยู่ชั้นล่างแล้ว ตรงนี้แค่ไม่ให้หน้าจอหลอกผู้ใช้
+  //   อนุมัติ/ไม่อนุมัติ → เฉพาะผู้อนุมัติและฝ่ายบุคคล · ผู้ขอลากดใบตัวเองไม่ได้
+  //   ลบ                → เจ้าของใบ หรือฝ่ายบุคคล · ผู้อนุมัติลบใบคนอื่นไม่ได้
   var ยังรอพิจารณา = ใบ.status === "รอพิจารณา";
+  var เปลี่ยนสถานะได้ = ยังรอพิจารณา && เป็นผู้อนุมัติ(ผู้ใช้);
+  var ลบได้ = ใบ.requesterId === ผู้ใช้.uid || เป็นฝ่ายบุคคล(ผู้ใช้);
 
   html += '<div class="btn-row">';
-  if (ยังรอพิจารณา) {
+  if (เปลี่ยนสถานะได้) {
     html +=
       '<button type="button" class="btn-ok" id="ปุ่มอนุมัติ">อนุมัติ</button>' +
       '<button type="button" class="btn-danger" id="ปุ่มไม่อนุมัติ">ไม่อนุมัติ</button>';
   }
-  html +=
-    '<button type="button" class="btn-danger" id="ปุ่มลบ"' + (ยังรอพิจารณา ? "" : " disabled") +
-    ">ลบใบลา</button>" +
-    "</div>";
+  if (ลบได้) {
+    html +=
+      '<button type="button" class="btn-danger" id="ปุ่มลบ"' + (ยังรอพิจารณา ? "" : " disabled") +
+      ">ลบใบลา</button>";
+  }
+  html += "</div>";
 
   if (!ยังรอพิจารณา) {
     html += '<p class="hint">ใบนี้พิจารณาแล้ว จึงเปลี่ยนสถานะต่อไม่ได้ และลบไม่ได้ — ลบได้เฉพาะใบที่ยังรอพิจารณา</p>';
+  } else if (!เป็นผู้อนุมัติ(ผู้ใช้)) {
+    html += '<p class="hint">ใบนี้รอผู้อนุมัติพิจารณาอยู่ — ผู้ขอลาเปลี่ยนสถานะใบของตัวเองไม่ได้</p>';
   }
 
   if (เตือนสถานะ) {
@@ -111,9 +118,11 @@ function วาดใบลา() {
 
   กล่องใบลา.innerHTML = html;
 
-  if (ยังรอพิจารณา) {
+  if (เปลี่ยนสถานะได้) {
     document.getElementById("ปุ่มอนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("อนุมัติ"); });
     document.getElementById("ปุ่มไม่อนุมัติ").addEventListener("click", function () { เปลี่ยนสถานะ("ไม่อนุมัติ"); });
+  }
+  if (ลบได้ && ยังรอพิจารณา) {
     document.getElementById("ปุ่มลบ").addEventListener("click", ลบใบลา);
   }
 }
