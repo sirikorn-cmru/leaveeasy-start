@@ -41,7 +41,7 @@ spec หัวข้อ 8 แบ่งงานเป็นสัปดาห์
 | 8 | Security Rules · ปุ่มผู้ช่วย AI |
 | 9 | ทดสอบอัตโนมัติ |
 
-**สถานะปัจจุบัน: สัปดาห์ที่ 7 ผ่านเกณฑ์ครบแล้ว — เหลือ `leave-types.html` ที่ยังใช้ข้อมูลปลอม**
+**สถานะปัจจุบัน: สัปดาห์ที่ 7 เสร็จครบทุกข้อ — พร้อมเริ่มสัปดาห์ที่ 8**
 
 | งานสัปดาห์ที่ 7 | สถานะ |
 |---|:-:|
@@ -52,7 +52,7 @@ spec หัวข้อ 8 แบ่งงานเป็นสัปดาห์
 | ล็อกอิน Firebase Authentication | ✅ |
 | กฎขั้นต่ำ ต้องล็อกอินก่อนถึงอ่าน/เขียนได้ | ✅ Publish แล้ว |
 | Firebase Hosting | ✅ https://gen-lang-client-0091628886.web.app |
-| `leave-types.html` ต่อ Firestore | ⬜ |
+| `leave-types.html` ต่อ Firestore | ✅ |
 
 ⚠️ **ตอนเปลี่ยนสถานะ ต้องใช้ `updateDoc` ส่งไปเฉพาะช่อง `status`** — [spec หัวข้อ 6](leaveeasy-spec.md) สั่งห้ามเขียนทับช่องอื่น
 แปลว่ากดอนุมัติแล้ว **ห้ามเติม `approverId`/`approverName`** แม้จะดูสมเหตุสมผลก็ตาม · ถ้าใช้ `setDoc` จะลบอีก 11 ช่องทิ้งทั้งไฟล์
@@ -80,7 +80,7 @@ match /{document=**} { allow read, write: if request.auth != null; }
 
 ## สถาปัตยกรรม
 
-### สคริปต์สองรุ่นอยู่ร่วมกัน — จุดที่ต้องเข้าใจก่อนแก้ HTML
+### สคริปต์ classic กับ module อยู่ร่วมกัน — จุดที่ต้องเข้าใจก่อนแก้ HTML
 
 **หน้าที่แสดงข้อมูลทั้ง 4 หน้า** โหลด `js/util.js` และ `js/nav.js` เป็น **classic script + `defer`** ซึ่งประกาศฟังก์ชันไว้บน `window`
 (`esc()` · `ป้ายสถานะ()` · `เวลาตอนนี้()` · `ค่าจากURL()` · `ข้อความผิดพลาดฐานข้อมูล()`)
@@ -88,19 +88,20 @@ match /{document=**} { allow read, write: if request.auth != null; }
 ⚠️ **`index.html` โหลดแค่ `nav.js` + `js/index.js`** เพราะไม่มีข้อมูลให้วาด — ถ้าจะเรียก `esc()` ในหน้านั้น ต้องเติม `util.js` เข้าไปก่อน
 ⚠️ **`login.html` และ `signup.html` ไม่โหลดทั้ง `nav.js` และ `util.js`** — ตั้งใจ เพราะยังไม่ล็อกอินจึงไม่ควรมีแถบเมนู
 
-ส่วนสคริปต์ประจำหน้ามี 2 แบบปนกัน
+**ตอนนี้สคริปต์ประจำหน้าเป็น `type="module"` ทั้งหมดแล้ว** และ **ไม่มีหน้าไหนโหลด `js/data.js` อีกต่อไป**
+(`js/data.js` ยังอยู่ในโปรเจกต์เพราะ spec หัวข้อ 0 ระบุไว้ในโครงไฟล์ แต่ไม่มีใครใช้แล้ว)
 
 | หน้า | สคริปต์ | แหล่งข้อมูล |
 |---|---|---|
 | `leave-requests.html` | `type="module"` | **Firestore** (อ่านอย่างเดียว) |
 | `leave-request-detail.html` | `type="module"` | **Firestore** (อ่าน · แก้ `status` · เพิ่มความเห็น · ลบใบลา) |
 | `new-leave-request.html` | `type="module"` | **Firestore** (อ่าน `leaveTypes` · เขียนใบลาใหม่) |
-| `leave-types.html` | classic `defer` + `js/data.js` | ข้อมูลปลอมในไฟล์ — **เหลือหน้าเดียว** |
+| `leave-types.html` | `type="module"` | **Firestore** (อ่าน · เพิ่ม · แก้ชื่อ · ลบ) |
 | `index.html` | `type="module"` (`js/index.js`) | ไม่มีข้อมูล · มีแค่ยามเฝ้าหน้า |
 | `login.html` · `signup.html` | `type="module"` | Firebase Auth · **ไม่มียามเฝ้าหน้า ไม่มีแถบเมนู** |
 
-**ที่ผสมกันได้เพราะ** classic `defer` ทำงานก่อน module เสมอตามลำดับที่เขียนใน HTML — module จึงเรียกฟังก์ชันจาก `util.js` ได้
-เวลาแปลงหน้าที่เหลือไปใช้ Firestore: ลบบรรทัด `data.js` ออก แล้วเปลี่ยน `defer` เป็น `type="module"` และ **คง `util.js` กับ `nav.js` ไว้ที่เดิม**
+**ที่ classic กับ module อยู่ร่วมกันได้เพราะ** classic `defer` ทำงานก่อน module เสมอตามลำดับที่เขียนใน HTML
+module จึงเรียกฟังก์ชันจาก `util.js` ได้ · **เวลาสร้างหน้าใหม่ ให้คง `util.js` กับ `nav.js` เป็น `defer` ไว้เหมือนเดิม**
 
 `js/firebase.js` เป็น module ที่ `export const db` — หน้าที่ต้องใช้ Firestore เขียน `import { db } from "./firebase.js"`
 
