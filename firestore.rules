@@ -1,13 +1,17 @@
 // ─────────────────────────────────────────────────────────────
 // firestore.rules — กฎเฝ้าข้อมูลของ LeaveEasy
+// สัปดาห์ที่ 8 — กฎรายโฟลเดอร์ตามตารางสิทธิ์ใน ACL.md
 //
-// 📌 ไฟล์นี้เก็บไว้ให้กฎอยู่ในประวัติ git ตรวจย้อนหลังได้
-//    แต่ Firestore ยังไม่ได้อ่านจากไฟล์นี้โดยตรง
-//    ต้องคัดลอกไปวางใน Firebase Console → Firestore Database → Rules
-//    แล้วกด Publish ทุกครั้งที่แก้
+// 📌 ส่งกฎขึ้นใช้งานด้วย
+//    npx.cmd firebase-tools deploy --only firestore:rules
 //
-// สัปดาห์ที่ 7 — กฎขั้นต่ำ "ต้องล็อกอินก่อน ถึงอ่าน/เขียนได้"
-// สัปดาห์ที่ 8 — จะเปลี่ยนเป็นกฎรายโฟลเดอร์ตามตารางใน ACL.md
+// ⚠️ ชื่อฟังก์ชันเป็นภาษาอังกฤษ ต่างจากไฟล์ .js ในโปรเจกต์นี้
+//    เพราะภาษาของ Security Rules ไม่รับชื่อที่เป็นภาษาไทย
+//
+// ⚠️ มีกฎ 1 ข้อใน ACL.md ที่เขียนตรงนี้ไม่ได้:
+//    "จะกดไม่อนุมัติ ต้องมีความเห็นอย่างน้อย 1 รายการก่อน"
+//    เพราะ Rules นับจำนวนไฟล์ในโฟลเดอร์ย่อยไม่ได้
+//    กฎข้อนั้นจึงยังบังคับได้แค่ในโค้ดหน้าเว็บ ซึ่งข้ามได้ด้วย F12
 // ─────────────────────────────────────────────────────────────
 
 rules_version = '2';
@@ -15,13 +19,116 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // {document=**} = ทุกไฟล์ในทุกโฟลเดอร์ "รวมโฟลเดอร์ย่อย approvals" ด้วย
-    // request.auth != null = คนที่ล็อกอินอยู่เท่านั้น
-    //
-    // ⚠️ สัปดาห์นี้ยังไม่แยกตามบทบาท — ล็อกอินแล้วทำได้ทุกอย่าง
-    //    การกันตามบทบาทตาม ACL.md เป็นงานของสัปดาห์ที่ 8
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // ── ตัวช่วยที่ใช้ร่วมกัน ──
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // อ่านบทบาทจากโฟลเดอร์ users · ถ้าไม่มีไฟล์โปรไฟล์ให้ถือว่าไม่มีบทบาท
+    function role() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : "";
+    }
+
+    function isApprover() {           // ผู้อนุมัติ + ฝ่ายบุคคล
+      return role() == "manager" || role() == "hr";
+    }
+
+    function isHr() {                 // ฝ่ายบุคคลเท่านั้น
+      return role() == "hr";
+    }
+
+
+    // ── 📁 users ──
+    match /users/{uid} {
+      allow read: if isSignedIn();
+
+      // สมัครสมาชิก: สร้างได้เฉพาะไฟล์ของตัวเอง และ role ต้องเป็น employee เสมอ
+      // กันคนสมัครแล้วตั้งตัวเองเป็น hr
+      allow create: if isSignedIn()
+                    && request.auth.uid == uid
+                    && request.resource.data.role == "employee";
+
+      // แก้ชื่อตัวเองได้ แต่ห้ามเลื่อนขั้นตัวเอง · ฝ่ายบุคคลแก้ได้ทุกคน
+      allow update: if isHr()
+                    || (isSignedIn()
+                        && request.auth.uid == uid
+                        && request.resource.data.role == resource.data.role);
+
+      allow delete: if isHr();
+    }
+
+
+    // ── 📁 leaveTypes ── ACL.md: มีแต่ hr ที่แก้ประเภทการลาได้
+    match /leaveTypes/{typeId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isHr();
+    }
+
+
+    // ── 📁 leaveRequests ──
+    match /leaveRequests/{requestId} {
+
+      function isOwner() {
+        return isSignedIn() && resource.data.requesterId == request.auth.uid;
+      }
+
+      // ผู้ขอลาเห็นเฉพาะใบตัวเอง · ผู้อนุมัติและฝ่ายบุคคลเห็นทุกใบ
+      // ⚠️ ฝั่งหน้าเว็บต้องใส่ where("requesterId","==",uid) ให้ผู้ขอลาด้วย
+      //    เพราะ Rules ไม่ได้คัดใบให้ทีละใบ แต่ปฏิเสธทั้งคำสั่งถ้าขอเกินสิทธิ์
+      allow read: if isOwner() || isApprover();
+
+      // ยื่นใบลา: ใส่ชื่อคนอื่นเป็นผู้ขอลาไม่ได้ และต้องเริ่มที่ รอพิจารณา เสมอ
+      allow create: if isSignedIn()
+                    && request.resource.data.requesterId == request.auth.uid
+                    && request.resource.data.status == "รอพิจารณา";
+
+      // เปลี่ยนสถานะ — ข้อที่ละเอียดที่สุด ต้องครบทั้ง 4 เงื่อนไข
+      //   1. ผู้อนุมัติหรือฝ่ายบุคคลเท่านั้น (ผู้ขอลาอนุมัติใบตัวเองไม่ได้)
+      //   2. แก้ได้เฉพาะช่อง status ช่องเดียว ห้ามแตะช่องอื่น
+      //   3. ของเดิมต้องยังเป็น รอพิจารณา — กันการย้อนสถานะ
+      //   4. ค่าใหม่ต้องเป็น 1 ใน 2 ค่าปลายทางเท่านั้น
+      allow update: if isApprover()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["status"])
+                    && resource.data.status == "รอพิจารณา"
+                    && request.resource.data.status in ["อนุมัติ", "ไม่อนุมัติ"];
+
+      // ลบได้เฉพาะใบที่ยัง รอพิจารณา · เจ้าของหรือฝ่ายบุคคลเท่านั้น
+      // ผู้อนุมัติลบใบของคนอื่นไม่ได้ (ACL.md)
+      allow delete: if resource.data.status == "รอพิจารณา"
+                    && (isOwner() || isHr());
+
+
+      // ── 📁 approvals — โฟลเดอร์ย่อยของใบลาใบนี้ ──
+      match /approvals/{approvalId} {
+
+        function parent() {
+          return get(/databases/$(database)/documents/leaveRequests/$(requestId)).data;
+        }
+
+        function isParentOwner() {
+          return isSignedIn() && parent().requesterId == request.auth.uid;
+        }
+
+        allow read: if isParentOwner() || isApprover();
+
+        // เขียนความเห็นได้ถ้าเป็นเจ้าของใบ หรือเป็นผู้อนุมัติ
+        // และต้องเขียนในนามตัวเองเท่านั้น สวมชื่อคนอื่นไม่ได้
+        allow create: if (isParentOwner() || isApprover())
+                      && request.resource.data.authorId == request.auth.uid;
+
+        // ความเห็นที่เขียนแล้ว แก้ไม่ได้ตลอดกาล
+        allow update: if false;
+
+        // ⚠️ ยกเว้นเดียวที่ยอมให้ลบ: ตอนกำลังลบใบลาทั้งใบ
+        //    เพราะ Firestore ไม่ลบโฟลเดอร์ย่อยตามให้ ต้องลบความเห็นเองก่อน
+        //    ถ้าปิดสนิทจะลบใบลาที่มีความเห็นไม่ได้เลย และเหลือความเห็นกำพร้าค้างในฐาน
+        //    จึงจำกัดให้ลบได้เฉพาะตอนที่ใบแม่ยังลบได้อยู่เท่านั้น
+        allow delete: if parent().status == "รอพิจารณา"
+                      && (isParentOwner() || isHr());
+      }
     }
   }
 }

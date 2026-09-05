@@ -8,8 +8,8 @@
 // ─────────────────────────────────────────────────────────────
 
 import { db } from "./firebase.js";
-import { กันหน้า } from "./auth.js";
-import { collection, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { กันหน้า, เป็นผู้อนุมัติ } from "./auth.js";
+import { collection, getDocs, query, where } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 var กล่อง = document.getElementById("ผลลัพธ์");
 
@@ -21,7 +21,13 @@ if (ผู้ใช้) อ่านใบลาจากฐานข้อม�
 // ── ไปเอาใบลาทั้งหมดจากโฟลเดอร์ leaveRequests บน Firestore ──
 async function อ่านใบลาจากฐานข้อมูล() {
   try {
-    var ผลลัพธ์ = await getDocs(collection(db, "leaveRequests"));
+    // 🔑 Security Rules กรองข้อมูลให้ไม่ได้ — ถ้าขอเกินสิทธิ์จะถูกปฏิเสธ "ทั้งคำสั่ง"
+    //    ไม่ใช่ได้มาเฉพาะใบที่มีสิทธิ์ ผู้ขอลาจึงต้องระบุ where เองว่าขอเฉพาะใบตัวเอง
+    var คำสั่ง = เป็นผู้อนุมัติ(ผู้ใช้)
+      ? collection(db, "leaveRequests")
+      : query(collection(db, "leaveRequests"), where("requesterId", "==", ผู้ใช้.uid));
+
+    var ผลลัพธ์ = await getDocs(คำสั่ง);
 
     // 🔑 จุดที่ต่างจากข้อมูลปลอม:
     //    บน Firestore "รหัสใบลา" คือ ชื่อไฟล์ (doc.id) ไม่ใช่ช่องข้อมูลข้างใน
