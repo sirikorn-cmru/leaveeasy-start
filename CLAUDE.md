@@ -41,7 +41,7 @@ spec หัวข้อ 8 แบ่งงานเป็นสัปดาห์
 | 8 | Security Rules · ปุ่มผู้ช่วย AI |
 | 9 | ทดสอบอัตโนมัติ |
 
-**สถานะปัจจุบัน: กำลังทำสัปดาห์ที่ 7 — เหลือ Hosting กับ `leave-types.html`**
+**สถานะปัจจุบัน: สัปดาห์ที่ 7 ผ่านเกณฑ์ครบแล้ว — เหลือ `leave-types.html` ที่ยังใช้ข้อมูลปลอม**
 
 | งานสัปดาห์ที่ 7 | สถานะ |
 |---|:-:|
@@ -51,7 +51,7 @@ spec หัวข้อ 8 แบ่งงานเป็นสัปดาห์
 | D ลบ (เฉพาะใบที่ยัง `รอพิจารณา`) | ✅ |
 | ล็อกอิน Firebase Authentication | ✅ |
 | กฎขั้นต่ำ ต้องล็อกอินก่อนถึงอ่าน/เขียนได้ | ✅ Publish แล้ว |
-| Firebase Hosting | ⬜ |
+| Firebase Hosting | ✅ https://gen-lang-client-0091628886.web.app |
 | `leave-types.html` ต่อ Firestore | ⬜ |
 
 ⚠️ **ตอนเปลี่ยนสถานะ ต้องใช้ `updateDoc` ส่งไปเฉพาะช่อง `status`** — [spec หัวข้อ 6](leaveeasy-spec.md) สั่งห้ามเขียนทับช่องอื่น
@@ -191,10 +191,35 @@ leaveRequests/{lr001} { title, reason, status,
 `ป้ายสถานะ()` ใน `js/util.js` สร้าง class ชื่อ `badge-` + ค่าสถานะ ซึ่งไปตรงกับ `.badge-รอพิจารณา` ฯลฯ ใน `css/style.css`
 **แก้ข้อความสถานะเมื่อไหร่ ป้ายสีหายทันทีโดยไม่มี error** ต้องแก้ CSS ตามด้วย
 
+### Firebase Hosting — คำสั่งและกับดัก
+
+```bash
+npx.cmd firebase-tools deploy --only hosting        # ขึ้นเว็บ
+npx.cmd firebase-tools deploy --only firestore:rules # ส่งกฎจาก firestore.rules
+```
+
+⚠️ **บน Windows ต้องใช้ `npx.cmd` ไม่ใช่ `npx`** — PowerShell ตั้งค่าห้ามรันสคริปต์ `.ps1` ไว้เป็นค่าเริ่มต้น
+`npx` จะขึ้น `npx.ps1 cannot be loaded because running scripts is disabled` · `npx.cmd` ไม่โดนบล็อก
+
+⚠️ **อย่าพิมพ์ `firebase deploy` เฉย ๆ** จะ deploy ทั้ง hosting และกฎพร้อมกัน · ใส่ `--only` เสมอ
+
+⚠️ **อย่ารัน `firebase init hosting`** จะทับ `firebase.json` ที่ตั้งค่าไว้ โดยเฉพาะ `cleanUrls: false`
+ซึ่งกันบั๊กเดียวกับที่ `serve.json` กัน — ถ้าเปิด `cleanUrls` เว็บจริงจะทิ้ง `?id=` จนหน้ารายละเอียดพัง
+
+⚠️ **ดูเลข `found N files` ทุกครั้งที่ deploy** — โปรเจกต์นี้ควรได้ราว ๆ **20 ไฟล์**
+เคยพลาดมาแล้ว: `ignore` เขียนแค่ `**/.*` ซึ่งกันได้เฉพาะไฟล์ที่ขึ้นต้นด้วยจุด **แต่ไม่กันของข้างในโฟลเดอร์จุด**
+ทำให้ `.git` ทั้งโฟลเดอร์ (124 ไฟล์) หลุดขึ้นเว็บ เปิดอ่านได้จากอินเทอร์เน็ต · แก้ด้วยการเพิ่ม `**/.*/**`
+**ถ้าเลขพุ่งเกิน 20 มาก แปลว่ามีอะไรหลุด อย่าเพิ่งปล่อยผ่าน**
+
 ### `serve.json` — ห้ามลบ
 
 ตั้ง `cleanUrls: false` ไว้ เพราะค่าเริ่มต้นของ `serve` จะตัด `.html` ออกแล้ว **ทิ้ง query string ไปด้วย**
 ทำให้ `leave-request-detail.html?id=lr001` กลายเป็น `/leave-request-detail` และหน้ารายละเอียดหาใบลาไม่เจอ
+
+⚠️ **ถ้าเจอ 404 ทั้งที่ไฟล์มีอยู่จริง ให้สงสัยแคชของเบราว์เซอร์ก่อนเสมอ**
+`serve` เคยส่งคำสั่งย้ายถาวร (301) ไปที่ URL ที่ไม่มี `.html` และเบราว์เซอร์จำไว้ **กด F5 ไม่หาย**
+แก้ด้วยการเปิด F12 ค้างไว้ → คลิกขวาที่ปุ่มรีเฟรช → **Empty Cache and Hard Reload**
+เรื่องนี้เล่นงานมาแล้ว 2 รอบ · ตรวจด้วย `curl -o /dev/null -w "%{http_code}" http://localhost:3000/หน้าที่สงสัย.html` ว่า server ตอบ 200 จริงไหมก่อนไล่หาสาเหตุอื่น
 
 ## 🔐 คีย์และความลับ
 
