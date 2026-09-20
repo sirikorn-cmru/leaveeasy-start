@@ -31,6 +31,12 @@
           <option value="">— เลือกประเภทการลา —</option>
         </select>
 
+        <!-- ปุ่มผู้ช่วย AI — ซ่อนไว้ก่อน เปิดเฉพาะเครื่องที่มีไฟล์คีย์ (js/ai-key.js) -->
+        <div class="btn-row hidden" id="แถวปุ่มAI">
+          <button type="button" class="btn-ghost" id="ปุ่มจัดประเภท">🤖 ให้ AI ช่วยจัดประเภทการลา</button>
+        </div>
+        <div id="ผลAI"></div>
+
         <label for="startDate">วันที่เริ่มลา</label>
         <input type="date" id="startDate">
 
