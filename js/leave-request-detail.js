@@ -9,6 +9,7 @@
 
 import { db } from "./firebase.js";
 import { กันหน้า, เป็นผู้อนุมัติ, เป็นฝ่ายบุคคล } from "./auth.js";
+import { มีคีย์ไหม, ถามAI } from "./ai.js";
 import { doc, getDoc, updateDoc, deleteDoc, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 // ผู้พิจารณาคือคนที่ล็อกอินอยู่จริง (spec US-08)
@@ -56,6 +57,7 @@ async function เปิดใบลา() {
 
     วาดใบลา();
     วาดความเห็น();
+    await วาดกล่องAI();
     กล่องความเห็น.classList.remove("hidden");
 
     document.getElementById("ปุ่มส่งความเห็น").addEventListener("click", ส่งความเห็น);
@@ -166,6 +168,88 @@ function ปิดปุ่มพิจารณา(ข้อความ, idท
   });
   var ปุ่มที่บอกสถานะ = document.getElementById(idที่เปลี่ยนข้อความ || "ปุ่มอนุมัติ");
   if (ปุ่มที่บอกสถานะ) { ปุ่มที่บอกสถานะ.textContent = ข้อความ; }
+}
+
+// ── 🤖 ข้อเสนอจาก AI ──
+// 🔴 ปุ่มนี้เขียนได้เฉพาะช่อง aiSuggestion เท่านั้น
+//    ห้ามให้ AI เปลี่ยน status เอง สถานะจริงต้องรอคนกดอนุมัติ/ไม่อนุมัติเท่านั้น
+//    (firestore.rules กันไว้อีกชั้น ถึงโค้ดพลาดก็เขียนไม่ผ่าน)
+async function วาดกล่องAI() {
+  var กล่องAI = document.getElementById("กล่องAI");
+  var ที่วางสรุป = document.getElementById("ที่วางสรุป");
+  var แถวปุ่ม = document.getElementById("แถวปุ่มAI");
+
+  var กดสรุปได้ = เป็นผู้อนุมัติ(ผู้ใช้) && (await มีคีย์ไหม());
+
+  // ไม่มีสรุปเก่า และกดสร้างก็ไม่ได้ ก็ไม่ต้องโชว์กล่องนี้เลย
+  if (!ใบ.aiSuggestion && !กดสรุปได้) return;
+
+  ที่วางสรุป.innerHTML = ใบ.aiSuggestion
+    ? '<div class="alert alert-ai">' + esc(ใบ.aiSuggestion) + "</div>"
+    : '<p class="hint">ยังไม่มีสรุป — กดปุ่มด้านล่างเพื่อให้ AI สรุปใบลานี้</p>';
+
+  แถวปุ่ม.innerHTML = กดสรุปได้
+    ? '<button type="button" id="ปุ่มสรุป">' + (ใบ.aiSuggestion ? "สรุปใหม่อีกครั้ง" : "ให้ AI สรุปใบลานี้") + "</button>"
+    : "";
+
+  if (กดสรุปได้) {
+    document.getElementById("ปุ่มสรุป").addEventListener("click", สั่งAIสรุป);
+  }
+  กล่องAI.classList.remove("hidden");
+}
+
+// สร้างคำสั่งจากข้อมูลในใบลา รวมความเห็นที่มีอยู่ด้วย
+function คำสั่งสรุป() {
+  var รายการความเห็น = ความเห็น.length
+    ? ความเห็น.map(function (c) { return "- " + c.authorName + ": " + c.message; }).join("\n")
+    : "(ยังไม่มีความเห็น)";
+
+  return "คุณคือผู้ช่วยของหัวหน้างาน สรุปใบขอลาต่อไปนี้ให้หัวหน้าอ่านก่อนตัดสินใจอนุมัติ\n\n" +
+    "หัวข้อ: " + ใบ.title + "\n" +
+    "ผู้ขอลา: " + ใบ.requesterName + "\n" +
+    "ประเภทการลา: " + ใบ.leaveTypeName + "\n" +
+    "วันที่ลา: " + ใบ.startDate + " ถึง " + ใบ.endDate + "\n" +
+    "เหตุผล: " + ใบ.reason + "\n" +
+    "ความเห็นที่มีอยู่:\n" + รายการความเห็น + "\n\n" +
+    "เขียนสรุปภาษาไทย 2-3 ประโยค เน้นสิ่งที่หัวหน้าต้องรู้ก่อนตัดสินใจ\n" +
+    "ห้ามแต่งข้อมูลที่ไม่มีในใบลา และห้ามบอกว่าควรอนุมัติหรือไม่อนุมัติ";
+}
+
+async function สั่งAIสรุป() {
+  var ปุ่ม = document.getElementById("ปุ่มสรุป");
+  var ที่วางสรุป = document.getElementById("ที่วางสรุป");
+  var ข้อความเดิมบนปุ่ม = ปุ่ม.textContent;
+
+  ปุ่ม.disabled = true;
+  ปุ่ม.textContent = "กำลังให้ AI สรุป…";
+
+  var ผล = await ถามAI(คำสั่งสรุป());
+
+  if (!ผล.สำเร็จ) {
+    // AI พลาดไม่กระทบอย่างอื่น ปุ่มอนุมัติยังกดได้ตามปกติ
+    ที่วางสรุป.innerHTML = '<div class="alert alert-error">⚠️ สรุปไม่สำเร็จ — ' + esc(ผล.เหตุผล) + "</div>" +
+      (ใบ.aiSuggestion ? '<div class="alert alert-ai">' + esc(ใบ.aiSuggestion) + "</div>" : "");
+    ปุ่ม.disabled = false;
+    ปุ่ม.textContent = ข้อความเดิมบนปุ่ม;
+    return;
+  }
+
+  try {
+    // เขียนเฉพาะช่อง aiSuggestion ช่องเดียว ไม่แตะ status
+    await updateDoc(doc(db, "leaveRequests", ใบ.id), { aiSuggestion: ผล.ข้อความ });
+
+    // เขียนสำเร็จแล้วค่อยเปลี่ยนหน้าจอ
+    ใบ.aiSuggestion = ผล.ข้อความ;
+    await วาดกล่องAI();
+
+  } catch (ข้อผิดพลาด) {
+    console.error("บันทึกสรุปไม่สำเร็จ:", ข้อผิดพลาด);
+    ที่วางสรุป.innerHTML = '<div class="alert alert-error">⚠️ AI สรุปมาแล้ว แต่บันทึกลงฐานไม่สำเร็จ — ' +
+      esc(ข้อผิดพลาด.code || ข้อผิดพลาด.message) + "</div>" +
+      '<div class="alert alert-ai">' + esc(ผล.ข้อความ) + "</div>";
+    ปุ่ม.disabled = false;
+    ปุ่ม.textContent = ข้อความเดิมบนปุ่ม;
+  }
 }
 
 // ── ลบใบลา ──

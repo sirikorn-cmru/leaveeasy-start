@@ -95,6 +95,14 @@ service cloud.firestore {
                     && resource.data.status == "รอพิจารณา"
                     && request.resource.data.status in ["อนุมัติ", "ไม่อนุมัติ"];
 
+      // เขียนข้อเสนอจาก AI — แยกเป็นกฎอีกก้อน ไม่ไปแตะก้อนเปลี่ยนสถานะข้างบน
+      //   1. ผู้อนุมัติหรือฝ่ายบุคคลเท่านั้น
+      //   2. แก้ได้เฉพาะช่อง aiSuggestion ช่องเดียว
+      // 🔴 จงใจไม่ให้รวม status เข้ามาในก้อนนี้
+      //    AI เปลี่ยนสถานะเองไม่ได้เด็ดขาด ต้องให้คนกดยืนยันผ่านกฎก้อนบนเท่านั้น
+      allow update: if isApprover()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["aiSuggestion"]);
+
       // ลบได้เฉพาะใบที่ยัง รอพิจารณา · เจ้าของหรือฝ่ายบุคคลเท่านั้น
       // ผู้อนุมัติลบใบของคนอื่นไม่ได้ (ACL.md)
       allow delete: if resource.data.status == "รอพิจารณา"
