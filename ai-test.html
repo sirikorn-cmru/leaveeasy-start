@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ทดสอบ AI · LeaveEasy</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/util.js" defer></script>
+  <script src="js/ai-test.js" type="module"></script>
+</head>
+<body>
+  <!-- ─────────────────────────────────────────────────────────
+       ai-test.html — หน้าทดสอบว่าต่อ OpenRouter ได้หรือไม่
+       ไม่ใช่หน้าจอของระบบ · ไม่มีแถบเมนู · ไม่ถูก deploy ขึ้นเว็บจริง
+       ใช้เสร็จแล้วลบทิ้งได้ หรือเก็บไว้ทดสอบตอนโมเดลมีปัญหา
+       ───────────────────────────────────────────────────────── -->
+
+  <div class="container">
+    <h1>ทดสอบเชื่อมต่อ AI</h1>
+    <p class="subtitle">กดปุ่มเพื่อส่งคำว่า “สวัสดี” ไปให้ AI แล้วดูว่าตอบกลับมาว่าอะไร</p>
+
+    <div class="card">
+      <div class="field-row"><span class="k">โมเดล</span><span id="ชื่อโมเดล">—</span></div>
+      <div class="field-row"><span class="k">ข้อความที่จะส่ง</span><span>สวัสดี</span></div>
+
+      <div class="btn-row">
+        <button type="button" id="ปุ่มส่ง">ส่งข้อความหา AI</button>
+      </div>
+      <p class="hint">รอเกิน 15 วินาทีจะยกเลิกเอง ไม่ปล่อยให้ค้าง</p>
+    </div>
+
+    <div class="card" id="กล่องคำตอบ" style="margin-top:16px">
+      <p class="hint">ยังไม่ได้ส่ง — กดปุ่มด้านบนเพื่อเริ่ม</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -11,7 +11,11 @@
       "package-lock.json",
       "serve.json",
       "firestore.rules",
-      "*.md"
+      "*.md",
+      "js/ai-key.js",
+      "js/ai-key.example.js",
+      "ai-test.html",
+      "js/ai-test.js"
     ]
   },
   "firestore": {

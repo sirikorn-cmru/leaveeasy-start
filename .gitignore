@@ -34,3 +34,6 @@ desktop.ini
 
 # ── ไฟล์ชั่วคราวของ Firebase CLI ──
 .firebase/
+
+# ── คีย์ลับ ห้ามขึ้น GitHub เด็ดขาด ──
+js/ai-key.js
