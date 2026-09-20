@@ -19,7 +19,8 @@ desktop.ini
 *.log
 .vscode/
 .idea/
-.claude/
+.claude/*
+!.claude/agents/
 
 
 # ─────────────────────────────────────────────────────────────
