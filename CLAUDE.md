@@ -41,7 +41,7 @@ spec หัวข้อ 8 แบ่งงานเป็นสัปดาห์
 | 8 | Security Rules · ปุ่มผู้ช่วย AI |
 | 9 | ทดสอบอัตโนมัติ |
 
-**สถานะปัจจุบัน: สัปดาห์ที่ 7 ครบ · สัปดาห์ที่ 8 ทำ Security Rules + ซ่อนปุ่มตามบทบาทแล้ว**
+**สถานะปัจจุบัน: สัปดาห์ที่ 8 เสร็จครบ — Rules รายห้อง · ซ่อนปุ่มตามบทบาท · ปุ่ม AI 2 ปุ่ม · Reviewer agent**
 
 | งานสัปดาห์ที่ 7 | สถานะ |
 |---|:-:|
@@ -55,7 +55,7 @@ spec หัวข้อ 8 แบ่งงานเป็นสัปดาห์
 | `leave-types.html` ต่อ Firestore | ✅ |
 
 ⚠️ **ตอนเปลี่ยนสถานะ ต้องใช้ `updateDoc` ส่งไปเฉพาะช่อง `status`** — [spec หัวข้อ 6](leaveeasy-spec.md) สั่งห้ามเขียนทับช่องอื่น
-แปลว่ากดอนุมัติแล้ว **ห้ามเติม `approverId`/`approverName`** แม้จะดูสมเหตุสมผลก็ตาม · ถ้าใช้ `setDoc` จะลบอีก 11 ช่องทิ้งทั้งไฟล์
+แปลว่ากดอนุมัติแล้ว **ห้ามเติม `approverId`/`approverName`** แม้จะดูสมเหตุสมผลก็ตาม · ถ้าใช้ `setDoc` จะลบช่องที่เหลือทิ้งทั้งไฟล์
 
 ⚠️ **ลบใบลาต้องลบไฟล์ในโฟลเดอร์ย่อยให้หมดก่อน** — Firestore ไม่ลบโฟลเดอร์ย่อยตามให้อัตโนมัติ
 ตอนนี้มี **2 โฟลเดอร์ย่อย: `approvals` และ `aiLog`** · โค้ดวนลบทั้งสองอยู่ใน `ลบใบลา()`
@@ -131,18 +131,19 @@ Rules นับไฟล์ในโฟลเดอร์ย่อยไม่�
 | หน้า | สคริปต์ | แหล่งข้อมูล |
 |---|---|---|
 | `leave-requests.html` | `type="module"` | **Firestore** (อ่านอย่างเดียว) |
-| `leave-request-detail.html` | `type="module"` | **Firestore** (อ่าน · แก้ `status` · เพิ่มความเห็น · ลบใบลา) |
-| `new-leave-request.html` | `type="module"` | **Firestore** (อ่าน `leaveTypes` · เขียนใบลาใหม่) |
+| `leave-request-detail.html` | `type="module"` | **Firestore** (อ่าน · แก้ `status` · เพิ่มความเห็น · ลบใบลา) + **🤖 ปุ่มสรุปใบลา** เขียน `aiSuggestion` และ `aiLog` |
+| `new-leave-request.html` | `type="module"` | **Firestore** (อ่าน `leaveTypes` · เขียนใบลาใหม่) + **🤖 ปุ่มจัดประเภทการลา** (ไม่เขียนลงฐาน) |
 | `leave-types.html` | `type="module"` | **Firestore** (อ่าน · เพิ่ม · แก้ชื่อ · ลบ) |
 | `index.html` | `type="module"` (`js/index.js`) | ไม่มีข้อมูล · มีแค่ยามเฝ้าหน้า |
 | `login.html` · `signup.html` | `type="module"` | Firebase Auth · **ไม่มียามเฝ้าหน้า ไม่มีแถบเมนู** |
+| `ai-test.html` | `type="module"` + `util.js` | 🔧 หน้าทดสอบ OpenRouter · **ไม่มียามเฝ้าหน้า · ไม่ถูก deploy** · ลบทิ้งได้ |
 
 **ที่ classic กับ module อยู่ร่วมกันได้เพราะ** classic `defer` ทำงานก่อน module เสมอตามลำดับที่เขียนใน HTML
 module จึงเรียกฟังก์ชันจาก `util.js` ได้ · **เวลาสร้างหน้าใหม่ ให้คง `util.js` กับ `nav.js` เป็น `defer` ไว้เหมือนเดิม**
 
 `js/firebase.js` เป็น module ที่ `export const db` — หน้าที่ต้องใช้ Firestore เขียน `import { db } from "./firebase.js"`
 
-### ⚠️ เลข version ของ Firebase SDK เขียนตายตัวอยู่ 8 ที่
+### ⚠️ เลข version ของ Firebase SDK เขียนตายตัวอยู่ 9 ที่
 
 CDN ของ Firebase ต้องระบุ version ในตัว URL และตอนนี้เป็น **12.18.0** กระจายอยู่
 
@@ -150,7 +151,7 @@ CDN ของ Firebase ต้องระบุ version ในตัว URL แ�
 |---|:-:|
 | `js/firebase.js` (`app` + `firestore` + `auth`) | 3 |
 | `js/auth.js` (`auth` + `firestore`) | 2 |
-| `js/leave-requests.js` · `js/leave-request-detail.js` · `js/new-leave-request.js` | 1 ต่อไฟล์ |
+| `js/leave-requests.js` · `js/leave-request-detail.js` · `js/new-leave-request.js` · `js/leave-types.js` | 1 ต่อไฟล์ |
 
 **อัปเกรดทีต้องแก้ให้ครบทุกที่** ถ้าแก้ไม่ครบจะโหลด SDK คนละรุ่นมาปนกันในหน้าเดียว ซึ่งพังแบบหาสาเหตุยาก
 ตรวจว่าครบด้วย `grep -rn "firebasejs/" js/`
@@ -177,9 +178,14 @@ if (ผู้ใช้) { เริ่มทำงาน(); }
 
 ⚠️ **`role` ตอนสมัครเป็น `employee` เสมอ** ([spec US-08](leaveeasy-spec.md:136)) ผู้สมัครเลือกเองไม่ได้ · ถ้าต้องการ `manager` หรือ `hr` ให้ไปแก้ใน Firebase Console
 
-⚠️ **รหัสผู้ใช้มี 2 แบบปนกันในฐาน — ตั้งใจให้เป็นแบบนี้**
+⚠️ **รหัสผู้ใช้มี 2 แบบปนกันในฐาน — และตอนนี้มีผลจริงแล้ว**
 ข้อมูลตัวอย่างใช้ `u001`–`u003` ส่วนบัญชีที่สมัครใหม่ได้ uid ยาว ๆ จาก Firebase ซึ่งกำหนดเองไม่ได้
-สัปดาห์นี้ยังไม่กรองตามคนจึงไม่มีผล · **ค่อยตัดสินใจตอนสัปดาห์ที่ 8** ว่าจะลบใบเก่าหรือแก้ `requesterId` ให้ชี้ uid จริง
+
+**ผลที่เกิดขึ้นหลังบังคับกฎรายบทบาท** — ใบลาตัวอย่าง `lr001`–`lr005` เป็นของ `u001`/`u003` ซึ่ง**ไม่มีใครล็อกอินเป็นคนนั้นได้**
+คนที่เป็น `employee` จึงมองไม่เห็นใบตัวอย่างเลย · เห็นได้เฉพาะ `manager` กับ `hr` ที่อ่านได้ทุกใบ
+
+**ตัดสินใจแล้ว: เก็บข้อมูลตัวอย่างไว้ตามเดิม** เพราะ [spec หัวข้อ 7](leaveeasy-spec.md) กำหนดไว้แบบนั้นและผู้สอนใช้ตรวจ
+เวลาทดสอบให้ตั้ง `role` ของบัญชีตัวเองเป็น `hr` ใน Console แทนการแก้ข้อมูลตัวอย่าง
 
 ### โครงสร้างข้อมูลบน Firestore
 

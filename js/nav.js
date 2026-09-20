@@ -36,15 +36,3 @@
   var ที่วาง = document.getElementById("nav");
   if (ที่วาง) ที่วาง.innerHTML = html;
 })();
-
-// แถบเตือนสีเหลือง ใช้ตอนที่ยังไม่ได้ตั้งค่า Firebase
-function showConfigWarning(ข้อความ) {
-  var กล่อง = document.createElement("div");
-  กล่อง.className = "alert alert-warn";
-  กล่อง.innerHTML =
-    "⚠️ <strong>ยังไม่ได้ตั้งค่า Firebase</strong> — " +
-    (ข้อความ || "หน้านี้จึงยังไม่ได้อ่านข้อมูลจากฐานข้อมูลจริง") +
-    "<br>วิธีตั้งค่าอยู่ในไฟล์ SETUP.md ขั้นที่ 4";
-  var ที่วาง = document.querySelector(".container") || document.body;
-  ที่วาง.insertBefore(กล่อง, ที่วาง.firstChild);
-}
