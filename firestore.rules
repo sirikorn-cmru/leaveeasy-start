@@ -75,6 +75,16 @@ service cloud.firestore {
         return isSignedIn() && resource.data.requesterId == request.auth.uid;
       }
 
+      // ในโฟลเดอร์ย่อย resource จะหมายถึงไฟล์ย่อย ไม่ใช่ใบลาแม่
+      // จึงต้องอ่านใบแม่ขึ้นมาเองด้วย get()
+      function parentRequest() {
+        return get(/databases/$(database)/documents/leaveRequests/$(requestId)).data;
+      }
+
+      function isParentOwner() {
+        return isSignedIn() && parentRequest().requesterId == request.auth.uid;
+      }
+
       // ผู้ขอลาเห็นเฉพาะใบตัวเอง · ผู้อนุมัติและฝ่ายบุคคลเห็นทุกใบ
       // ⚠️ ฝั่งหน้าเว็บต้องใส่ where("requesterId","==",uid) ให้ผู้ขอลาด้วย
       //    เพราะ Rules ไม่ได้คัดใบให้ทีละใบ แต่ปฏิเสธทั้งคำสั่งถ้าขอเกินสิทธิ์
@@ -112,14 +122,6 @@ service cloud.firestore {
       // ── 📁 approvals — โฟลเดอร์ย่อยของใบลาใบนี้ ──
       match /approvals/{approvalId} {
 
-        function parent() {
-          return get(/databases/$(database)/documents/leaveRequests/$(requestId)).data;
-        }
-
-        function isParentOwner() {
-          return isSignedIn() && parent().requesterId == request.auth.uid;
-        }
-
         allow read: if isParentOwner() || isApprover();
 
         // เขียนความเห็นได้ถ้าเป็นเจ้าของใบ หรือเป็นผู้อนุมัติ
@@ -134,7 +136,27 @@ service cloud.firestore {
         //    เพราะ Firestore ไม่ลบโฟลเดอร์ย่อยตามให้ ต้องลบความเห็นเองก่อน
         //    ถ้าปิดสนิทจะลบใบลาที่มีความเห็นไม่ได้เลย และเหลือความเห็นกำพร้าค้างในฐาน
         //    จึงจำกัดให้ลบได้เฉพาะตอนที่ใบแม่ยังลบได้อยู่เท่านั้น
-        allow delete: if parent().status == "รอพิจารณา"
+        allow delete: if parentRequest().status == "รอพิจารณา"
+                      && (isParentOwner() || isHr());
+      }
+
+
+      // ── 📁 aiLog — บันทึกทุกครั้งที่เรียก AI ──
+      // เป็นร่องรอยการใช้งาน AI ไว้ตรวจย้อนหลังว่าส่งอะไรไปและได้อะไรกลับมา
+      // ⚠️ ไม่ได้อยู่ใน spec หัวข้อ 5 — เพิ่มตามคำสั่งผู้ใช้
+      match /aiLog/{logId} {
+
+        allow read: if isParentOwner() || isApprover();
+
+        // เฉพาะผู้อนุมัติที่กดปุ่ม AI ได้ จึงเป็นคนเดียวที่เขียน log ได้
+        allow create: if isApprover();
+
+        // 🔴 ร่องรอยการใช้งานต้องแก้ไม่ได้ ไม่งั้นจะลบหลักฐานได้
+        allow update: if false;
+
+        // ลบได้เฉพาะตอนกำลังลบใบลาทั้งใบ เหตุผลเดียวกับ approvals
+        // Firestore ไม่ลบโฟลเดอร์ย่อยตามให้ ถ้าปิดสนิทจะเหลือขยะกำพร้า
+        allow delete: if parentRequest().status == "รอพิจารณา"
                       && (isParentOwner() || isHr());
       }
     }
